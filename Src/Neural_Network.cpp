@@ -21,7 +21,27 @@ using namespace std;
 
 int training_line = 0;// Has to be initialized 0
 std::vector<float> input, target, result;
-int trainingPass = 0;
+uint16_t NeuronIndex=0;
+float WeightsToSave[(InputNodes+1)*HiddenNodes + (HiddenNodes+1)*OutputNodes];
+float WeightsToLoad[(InputNodes+1)*HiddenNodes + (HiddenNodes+1)*OutputNodes]={
+		1.4118979,
+		-0.356188595,
+		-0.905302405,
+		0.565626562,
+		0.405887574,
+		0.738636911,
+		-0.243490189,
+		1.77138972,
+		-1.74998438,
+		1.3752538,
+		0.226741761,
+		0.201040983,
+		1.03361475,
+		-0.159878537,
+		1.17008626,
+		1.90834558,
+		0.951401353
+};
 
 // Training class to read training data from an array
 class TrainingData
@@ -78,6 +98,8 @@ public:
 	void calcOutputGradients(float targerValue);
 	void calcHiddenGradients(const Layer &nextLayer);
 	void updateInputWeights(Layer &prevLayer);
+	void saveInputWeights(Layer &prevLayer);
+	void loadInputWeights(Layer &prevLayer);
 
 private:
 	static float eta; // [0.0..1.0] overall network training rate
@@ -152,6 +174,32 @@ void Neuron::updateInputWeights(Layer &prevLayer)
 	}
 }
 
+void Neuron::saveInputWeights(Layer &prevLayer)
+{
+	// The weights to updated are in the Connection container
+	// in the neurons in the preceding layer
+
+	for (unsigned n = 0; n < prevLayer.size(); n++)
+	{
+		Neuron &neuron = prevLayer[n];
+		WeightsToSave[NeuronIndex] = neuron.m_outputWeights[m_myIndex].weight;
+		NeuronIndex++;
+	}
+}
+
+void Neuron::loadInputWeights(Layer &prevLayer)
+{
+	// The weights to updated are in the Connection container
+	// in the neurons in the preceding layer
+
+	for (unsigned n = 0; n < prevLayer.size(); n++)
+	{
+		Neuron &neuron = prevLayer[n];
+		neuron.m_outputWeights[m_myIndex].weight = WeightsToLoad[NeuronIndex];
+		NeuronIndex++;
+	}
+}
+
 float Neuron::eta = velocity; // overall net learning rate [0.0..1.0]
 float Neuron::alpha = momentum; // momentum multiplier of last deltaWeight [0.0..n]
 
@@ -195,6 +243,8 @@ public:
 	void backProp(const vector<float> &targetValues);
 	void getResults(vector<float> &resultValues) const;
 	float getRecentAverageError(void) const { return m_recentAverageError; }
+	void saveNeuronWeights();
+	void loadNeuronWeights();
 
 private:
 	vector<Layer> m_layers; // m_layers[layerNum][neuronNum]
@@ -308,16 +358,33 @@ void NeuralNetwork::getResults(vector<float> &resultValues) const
 	}
 }
 
-/*void showVectorValues(string label, vector<float> &v)
+void NeuralNetwork::saveNeuronWeights()
 {
-	cout << label << " ";
-	for (unsigned i = 0; i < v.size(); i++)
+	NeuronIndex=0;
+	// Forward propagate
+	for (unsigned layerNum = 1; layerNum < m_layers.size(); layerNum++)
 	{
-		cout << v[i] << " ";
+		Layer &prevLayer = m_layers[layerNum - 1];
+		for (unsigned n = 0; n < m_layers[layerNum].size() - 1; n++)
+		{
+			m_layers[layerNum][n].saveInputWeights(prevLayer);
+		}
 	}
+}
 
-	cout << endl;
-}*/
+void NeuralNetwork::loadNeuronWeights()
+{
+	NeuronIndex=0;
+	// Forward propagate
+	for (unsigned layerNum = 1; layerNum < m_layers.size(); layerNum++)
+	{
+		Layer &prevLayer = m_layers[layerNum - 1];
+		for (unsigned n = 0; n < m_layers[layerNum].size() - 1; n++)
+		{
+			m_layers[layerNum][n].loadInputWeights(prevLayer);
+		}
+	}
+}
 
 void startNN()
 {
@@ -325,65 +392,48 @@ void startNN()
 	std::vector<unsigned> topology;
 	topology = { InputNodes, HiddenNodes, OutputNodes };
 	NeuralNetwork myNet(topology);
-	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_RESET);
-	//cout << endl << "Training started\n" << endl;
-	while (1)
+	if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_2))
 	{
-		//trainingPass++;
-		//cout << endl << "Pass " << trainingPass;
-
-		//Get new input data and feed it forward:
-		trainData.getNextInputs(input);
-		//showVectorValues(": Inputs:", input);
-		myNet.feedForward(input);
-
-		// Train the net what the outputs should have been:
-		trainData.getTargetOutputs(target);
-		//showVectorValues("Targets: ", target);
-		assert(target.size() == topology.back());
-		myNet.backProp(target);//This function alters neurons
-
-							   // Collect the net's actual results:
-		myNet.getResults(result);
-		//showVectorValues("Outputs: ", result);
-
-
-		// Report how well the training is working, averaged over recent samples:
-		//cout << "Net recent average error: "
-		//	<< myNet.getRecentAverageError() << endl;
-
-		if (myNet.getRecentAverageError() < 0.001)
+		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_RESET);
+		while (1)
 		{
-			//cout << "Exit due to low error :D" << endl;
-			break;
+			//Get new input data and feed it forward:
+			trainData.getNextInputs(input);
+			//showVectorValues(": Inputs:", input);
+			myNet.feedForward(input);
+
+			// Train the net what the outputs should have been:
+			trainData.getTargetOutputs(target);
+			//showVectorValues("Targets: ", target);
+			assert(target.size() == topology.back());
+			myNet.backProp(target);//This function alters neurons
+
+			// Collect the net's actual results:
+			myNet.getResults(result);
+
+			if (myNet.getRecentAverageError() < 0.001)
+			{
+				myNet.saveNeuronWeights();
+				break;
+			}
 		}
+		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_SET);
+	} else
+	{
+		myNet.loadNeuronWeights();
 	}
 
-	//cout << endl << "Training done\n" << endl;
-	//cout << endl << "Run mode begin\n" << endl;
-	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_SET);
-	trainingPass = 0;
+	myNet.saveNeuronWeights();
+
 	while (1)
 	{
-		//trainingPass++;
-		//cout << endl << "Run " << trainingPass;
-
-		//Get new input data and feed it forward:
-		//Make sure that your input data are the same size as InputNodes
 		get_values();
 		input = { lightX, lightY };
-		//showVectorValues(": Inputs:", input);
 		myNet.feedForward(input);
-
-		// Collect the net's actual results:
 		myNet.getResults(result);
-		//showVectorValues("Outputs: ", result);
 		servoX(result[0]);
 		servoY(result[1]);
-		HAL_Delay(30);
-		//Sleep(1000);
 	}
-
 
 }
 

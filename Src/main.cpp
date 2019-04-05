@@ -73,17 +73,25 @@ extern "C" void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+float x=0.5f;
+float y=0.5f;
 void servoY(float value)
 {
-	if(value<=0.0f)
+	y+=(value-0.5f);
+	if(value<0.0f)
 		value=0.0f;
+	if(value>1.0f)
+		value=1.0f;
 	__HAL_TIM_SetCompare(&htim4, TIM_CHANNEL_3, 35+(value*80.0f));
 }
 
 void servoX(float value)
 {
-	if(value<=0.0f)
+	x+=(value-0.5f);
+	if(value<0.0f)
 		value=0.0f;
+	if(value>1.0f)
+		value=1.0f;
 	__HAL_TIM_SetCompare(&htim4, TIM_CHANNEL_4, 35+(value*80.0f));
 }
 
@@ -358,6 +366,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : PB11 */
   GPIO_InitStruct.Pin = GPIO_PIN_11;
@@ -365,6 +374,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+
+  /*Configure GPIO pin : B2_Pin */
+  GPIO_InitStruct.Pin = GPIO_PIN_2;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 }
 
 /* USER CODE BEGIN 4 */

@@ -18,7 +18,7 @@
 // Free to edit
 #define PatternCount 8
 #define InputNodes 2
-#define HiddenNodes 16
+#define HiddenNodes 3
 #define OutputNodes 2
 #define velocity 0.1; // overall net learning rate [0.0..1.0]
 #define momentum 0.5; // momentum multiplier of last deltaWeight [0.0..n]

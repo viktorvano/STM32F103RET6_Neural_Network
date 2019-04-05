@@ -63,6 +63,7 @@ post-build:
 	-@echo 'Generating binary and Printing size information:'
 	arm-none-eabi-objcopy -O binary "STM32F103RET6_Neural_Network.elf" "STM32F103RET6_Neural_Network.bin"
 	arm-none-eabi-size "STM32F103RET6_Neural_Network.elf"
+	arm-none-eabi-objcopy -O ihex "STM32F103RET6_Neural_Network.elf" "STM32F103RET6_Neural_Network.hex"
 	-@echo ' '
 
 .PHONY: all clean dependents
