@@ -423,7 +423,6 @@ void startNN()
 		myNet.loadNeuronWeights();
 	}
 
-	myNet.saveNeuronWeights();
 
 	while (1)
 	{
